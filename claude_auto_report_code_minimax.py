@@ -31,6 +31,13 @@ from typing import Dict, List, Optional, Tuple, DefaultDict
 import urllib.error
 import urllib.request
 
+# 非中文 locale 下管道/重定向默认编码可能是 cp1252 等，打印中文会 UnicodeEncodeError
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError, OSError):
+        pass
+
 
 # ============================================================
 # .env 加载（与脚本同目录的 .env，优先级低于已存在的环境变量）

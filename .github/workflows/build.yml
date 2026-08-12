@@ -84,8 +84,9 @@ jobs:
             BIN="dist/WorkLog.app/Contents/MacOS/WorkLog"
           fi
           # 打包产物必须能以 --engine 模式运行引擎 CLI（--help 快速返回）；
-          # 失败/超时时打印崩溃日志便于定位
-          if ! timeout 120 "$BIN" --engine --help; then
+          # 失败时打印崩溃日志便于定位。超时由 step 级 timeout-minutes 兜底
+          # （不能用 timeout 命令：macOS runner 没有 GNU coreutils）
+          if ! "$BIN" --engine --help; then
             echo "==== smoke FAILED, crash log: ===="
             cat "$HOME/WorkLog/logs/gui-crash.log" 2>/dev/null || echo "(no crash log)"
             exit 1

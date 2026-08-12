@@ -39,6 +39,12 @@ if sys.stdout is None:
     sys.stdout = open(os.devnull, "w", encoding="utf-8")
 if sys.stderr is None:
     sys.stderr = open(os.devnull, "w", encoding="utf-8")
+# 非中文 locale 的管道默认 cp1252 等编码，打印中文会 UnicodeEncodeError（打包版必现）
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError, OSError):
+        pass
 
 import worklog_memory as wlmem  # noqa: E402
 import claude_auto_report_code_minimax as engine  # noqa: E402
