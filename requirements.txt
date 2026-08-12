@@ -1,0 +1,7 @@
+# 引擎（claude_auto_report_code_minimax.py + worklog_memory.py）仍是纯标准库，
+# 采集/截图/出报/计划任务不需要任何第三方依赖。
+#
+# 以下依赖仅 GUI（worklog_gui.py）需要（Windows / macOS 通用）：
+pywebview>=5.0      # 原生窗口（Win=WebView2, Mac=WKWebView）
+pystray>=0.19       # 系统托盘（Win 任务栏 / Mac 菜单栏）
+pillow>=10.0        # 托盘与应用图标绘制

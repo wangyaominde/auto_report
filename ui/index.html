@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>WorkLog 工作日报</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <svg viewBox="0 0 256 256" class="brand-logo" aria-hidden="true">
+        <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#9333ea"/>
+        </linearGradient></defs>
+        <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#g)"/>
+        <polyline points="58,88 92,180 128,112 164,180 198,88" fill="none"
+                  stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>WorkLog</span>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-page="dashboard">
+        <span class="nav-ico">◧</span>仪表盘
+      </button>
+      <button class="nav-item" data-page="reports">
+        <span class="nav-ico">▤</span>报告
+      </button>
+      <button class="nav-item" data-page="memory">
+        <span class="nav-ico">◈</span>记忆库
+      </button>
+      <button class="nav-item" data-page="blacklist">
+        <span class="nav-ico">⊘</span>黑名单
+      </button>
+      <button class="nav-item" data-page="settings">
+        <span class="nav-ico">⚙</span>设置
+      </button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="foot-status"><span id="footDot" class="dot dot-gray"></span><span id="footText">状态获取中…</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- 仪表盘 -->
+    <section id="page-dashboard" class="page">
+      <header class="page-head">
+        <div><h1>仪表盘</h1><p id="dashDate" class="sub"></p></div>
+      </header>
+
+      <div class="cards">
+        <div class="card">
+          <div class="card-label">采集状态</div>
+          <div class="card-value"><span id="colDot" class="dot dot-gray"></span><span id="colState">—</span></div>
+          <div class="card-actions">
+            <button id="btnColStart" class="btn btn-sm">启动采集</button>
+            <button id="btnColStop" class="btn btn-sm btn-ghost">停止采集</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">今日窗口记录</div>
+          <div class="card-value big" id="statRecords">—</div>
+          <div class="card-hint" id="statLast"></div>
+        </div>
+        <div class="card">
+          <div class="card-label">今日截图</div>
+          <div class="card-value big" id="statShots">—</div>
+          <div class="card-hint">黑名单窗口与隐私模式期间不截图</div>
+        </div>
+        <div class="card card-privacy">
+          <div class="card-label">隐私模式</div>
+          <div class="card-value">
+            <label class="switch">
+              <input type="checkbox" id="privacyToggle">
+              <span class="slider"></span>
+            </label>
+            <span id="privacyText">关闭</span>
+          </div>
+          <div class="card-hint">开启后暂停窗口记录与截图</div>
+        </div>
+      </div>
+
+      <h2 class="section-title">快捷操作</h2>
+      <div class="quick-actions">
+        <button class="btn btn-primary" id="btnGenToday">生成今日日报</button>
+        <button class="btn" id="btnShot">立即截图</button>
+        <button class="btn" id="btnAnalyze">立即分析截图</button>
+        <button class="btn btn-ghost" id="btnOpenReports">打开报告文件夹</button>
+        <button class="btn btn-ghost" id="btnOpenShots">打开截图文件夹</button>
+      </div>
+
+      <h2 class="section-title">它是如何变准的</h2>
+      <div class="hint-panel">
+        在「报告」页把不属于你的条目勾掉，会进入记忆库作为负面样本；「记忆库」里的工作档案
+        告诉模型哪些项目属于你；生成每份报告时还会自动检索历史报告对齐项目叫法——三者共同
+        让下一份报告更准。
+      </div>
+    </section>
+
+    <!-- 报告 -->
+    <section id="page-reports" class="page" hidden>
+      <header class="page-head">
+        <div><h1>报告</h1><p class="sub">鼠标悬停条目可标记「不是我做的」，之后重新生成即可剔除同类内容</p></div>
+      </header>
+      <div class="reports-layout">
+        <div class="reports-side">
+          <div class="tabs">
+            <button class="tab active" data-kind="daily">日报</button>
+            <button class="tab" data-kind="weekly">周报</button>
+            <button class="tab" data-kind="monthly">月报</button>
+          </div>
+          <ul id="reportList" class="report-list"></ul>
+        </div>
+        <div class="report-view">
+          <div class="report-toolbar">
+            <span id="reportTitle" class="report-title">选择左侧报告查看</span>
+            <span class="spacer"></span>
+            <button class="btn btn-sm btn-primary" id="btnRegen" disabled>用最新记忆重新生成</button>
+          </div>
+          <article id="reportBody" class="markdown"></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 记忆库 -->
+    <section id="page-memory" class="page" hidden>
+      <header class="page-head">
+        <div><h1>记忆库</h1><p class="sub">工作档案 + 你否决过的条目，生成报告时自动注入</p></div>
+      </header>
+      <div class="memory-layout">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>个人工作档案</h3>
+            <button class="btn btn-sm btn-primary" id="btnProfileSave">保存档案</button>
+          </div>
+          <textarea id="profileEditor" class="profile-editor" spellcheck="false"
+                    placeholder="写下你负责的项目、职责、以及哪些内容不算你的工作…"></textarea>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>已否决的报告条目</h3><span class="sub" id="corrCount"></span></div>
+          <ul id="corrList" class="corr-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 黑名单 -->
+    <section id="page-blacklist" class="page" hidden>
+      <header class="page-head">
+        <div><h1>黑名单</h1><p class="sub">命中关键词的窗口：时长不记录；截图中该窗口区域自动打码（其余屏幕内容正常保留），不会发给 AI</p></div>
+      </header>
+      <div class="panel">
+        <div class="bl-add">
+          <input id="blInput" class="input" placeholder="输入关键词，回车添加（如：微信、王者荣耀、某项目代号）">
+          <button class="btn btn-primary" id="btnBlAdd">添加</button>
+        </div>
+        <div id="blChips" class="chips"></div>
+        <p class="card-hint">改动即时保存，采集进程 5 秒内自动生效，无需重启。</p>
+      </div>
+    </section>
+
+    <!-- 设置 -->
+    <section id="page-settings" class="page" hidden>
+      <header class="page-head">
+        <div><h1>大模型设置</h1><p class="sub">保存到本地 .env，下一次生成/分析即生效；截图分析要求模型支持图片输入（视觉）</p></div>
+      </header>
+      <div class="panel settings-panel">
+        <div class="form-row">
+          <label>服务商预设</label>
+          <div class="preset-chips" id="presetChips"></div>
+        </div>
+        <div class="form-row">
+          <label for="setUrl">API 地址</label>
+          <input id="setUrl" class="input" placeholder="https://...">
+        </div>
+        <div class="form-row">
+          <label for="setKey">API Key</label>
+          <div class="key-wrap">
+            <input id="setKey" class="input" type="password" placeholder="sk-...">
+            <button class="btn btn-sm" id="btnKeyShow" type="button">显示</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="setModel">模型</label>
+          <input id="setModel" class="input" placeholder="模型名，可手改">
+        </div>
+        <div class="form-grid3">
+          <div class="form-row">
+            <label for="setFormat">接口格式</label>
+            <select id="setFormat" class="input">
+              <option value="anthropic">anthropic</option>
+              <option value="openai">openai</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="setMaxTokens">max_tokens</label>
+            <input id="setMaxTokens" class="input" type="number" min="1000" step="1000">
+          </div>
+          <div class="form-row">
+            <label for="setTemp">temperature</label>
+            <input id="setTemp" class="input" type="number" min="0" max="2" step="0.1">
+          </div>
+        </div>
+        <p class="card-hint" id="presetHint">MiniMax 编程套餐（sk-cp- 开头的 Key）只能走 Anthropic 接口格式。</p>
+        <div class="settings-actions">
+          <button class="btn btn-primary" id="btnSetSave">保存设置</button>
+          <button class="btn" id="btnSetTest">测试连接</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div id="tasksPill" class="tasks-pill" hidden>
+  <div class="spinner spinner-sm"></div><span id="tasksText"></span>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
