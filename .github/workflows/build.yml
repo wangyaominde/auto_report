@@ -35,6 +35,9 @@ jobs:
       - name: Generate icons
         shell: python
         run: |
+          # shell:python 从临时目录执行脚本，需手动把仓库目录加进 sys.path
+          import os, sys
+          sys.path.insert(0, os.getcwd())
           from worklog_gui import _build_icon_image
           img = _build_icon_image()
           img.save("icon.png")
