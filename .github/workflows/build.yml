@@ -76,14 +76,20 @@ jobs:
 
       - name: Smoke test (engine dispatch)
         shell: bash
+        timeout-minutes: 5
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
             BIN="dist/WorkLog/WorkLog.exe"
           else
             BIN="dist/WorkLog.app/Contents/MacOS/WorkLog"
           fi
-          # 打包产物必须能以 --engine 模式运行引擎 CLI（--help 快速返回）
-          "$BIN" --engine --help
+          # 打包产物必须能以 --engine 模式运行引擎 CLI（--help 快速返回）；
+          # 失败/超时时打印崩溃日志便于定位
+          if ! timeout 120 "$BIN" --engine --help; then
+            echo "==== smoke FAILED, crash log: ===="
+            cat "$HOME/WorkLog/logs/gui-crash.log" 2>/dev/null || echo "(no crash log)"
+            exit 1
+          fi
           echo "engine dispatch OK"
 
       - name: Package (Windows)

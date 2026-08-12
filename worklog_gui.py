@@ -692,21 +692,35 @@ def main():
     webview.start(_start_tray, debug=False)
 
 
+def _log_crash() -> str:
+    """崩溃写入 DATA_DIR/logs/gui-crash.log，返回日志路径。"""
+    import traceback
+
+    log_dir = os.path.join(DATA_DIR, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    path = os.path.join(log_dir, "gui-crash.log")
+    with open(path, "a", encoding="utf-8") as fp:
+        fp.write(f"\n===== {datetime.now().isoformat()} argv={sys.argv[1:]} =====\n")
+        fp.write(traceback.format_exc())
+    return path
+
+
 if __name__ == "__main__":
     # 打包版引擎分发：WorkLog.exe --engine <引擎参数...>（采集/截图/分析/出报子进程都走这里）
     if len(sys.argv) > 1 and sys.argv[1] == "--engine":
         sys.argv = [sys.argv[0]] + sys.argv[2:]
-        engine.main()
+        try:
+            engine.main()
+        except SystemExit:
+            raise
+        except Exception:
+            _log_crash()
+            sys.exit(1)
         sys.exit(0)
     try:
         main()
     except Exception:
-        # pythonw 无控制台，崩溃必须落盘才能排查
-        import traceback
-
-        log_dir = os.path.join(SCRIPT_DIR, "logs")
-        os.makedirs(log_dir, exist_ok=True)
-        with open(os.path.join(log_dir, "gui-crash.log"), "a", encoding="utf-8") as fp:
-            fp.write(f"\n===== {datetime.now().isoformat()} =====\n")
-            fp.write(traceback.format_exc())
-        raise
+        # 注意：windowed 打包版里 raise 会弹阻塞式错误对话框（无人值守环境=永久卡死），
+        # 统一改为写日志 + 非零退出；日志在 DATA_DIR/logs/gui-crash.log
+        _log_crash()
+        sys.exit(1)
