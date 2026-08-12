@@ -19,11 +19,13 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-MEMORY_DIR = os.path.join(SCRIPT_DIR, "memory")
+# WORKLOG_DATA_DIR：打包版（PyInstaller）的可写数据目录，由 GUI 设置；未设置时用脚本目录
+DATA_DIR = os.getenv("WORKLOG_DATA_DIR", "").strip() or SCRIPT_DIR
+MEMORY_DIR = os.path.join(DATA_DIR, "memory")
 PROFILE_PATH = os.path.join(MEMORY_DIR, "profile.md")
 CORRECTIONS_PATH = os.path.join(MEMORY_DIR, "corrections.jsonl")
-BLACKLIST_PATH = os.path.join(SCRIPT_DIR, "blacklist.json")
-REPORTS_DIR = os.path.join(SCRIPT_DIR, "reports")
+BLACKLIST_PATH = os.path.join(DATA_DIR, "blacklist.json")
+REPORTS_DIR = os.path.join(DATA_DIR, "reports")
 
 _WORKLOG_HOME = os.path.expanduser("~/.worklog")
 PRIVACY_FLAG = os.path.join(_WORKLOG_HOME, "privacy.flag")

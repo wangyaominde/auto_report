@@ -21,6 +21,16 @@ import time
 from datetime import date, datetime, timedelta
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 冻结（PyInstaller 打包）支持：
+#   RESOURCE_DIR —— 只读资源（ui/、引擎模块），打包后位于解包目录
+#   DATA_DIR     —— 可写数据（.env/报告/截图/记忆/黑名单），打包后固定在 ~/WorkLog
+# 通过 WORKLOG_DATA_DIR 环境变量传给引擎与记忆模块（子进程继承）
+IS_FROZEN = bool(getattr(sys, "frozen", False))
+RESOURCE_DIR = getattr(sys, "_MEIPASS", SCRIPT_DIR) if IS_FROZEN else SCRIPT_DIR
+DATA_DIR = os.path.join(os.path.expanduser("~"), "WorkLog") if IS_FROZEN else SCRIPT_DIR
+os.makedirs(DATA_DIR, exist_ok=True)
+os.environ.setdefault("WORKLOG_DATA_DIR", DATA_DIR)
 sys.path.insert(0, SCRIPT_DIR)
 
 # pythonw 下 sys.stdout/stderr 为 None：引擎导入时会调 sys.stdout.isatty()，
@@ -39,11 +49,11 @@ except ImportError:
     print("缺少依赖：pip install pywebview pystray pillow")
     sys.exit(1)
 
-ENGINE_PATH = os.path.join(SCRIPT_DIR, "claude_auto_report_code_minimax.py")
-ENV_PATH = os.path.join(SCRIPT_DIR, ".env")
-UI_INDEX = os.path.join(SCRIPT_DIR, "ui", "index.html")
-ASSETS_DIR = os.path.join(SCRIPT_DIR, "assets")
-REPORTS_DIR = os.path.join(SCRIPT_DIR, "reports")
+ENGINE_PATH = os.path.join(RESOURCE_DIR, "claude_auto_report_code_minimax.py")
+ENV_PATH = os.path.join(DATA_DIR, ".env")
+UI_INDEX = os.path.join(RESOURCE_DIR, "ui", "index.html")
+ASSETS_DIR = os.path.join(DATA_DIR, "assets")
+REPORTS_DIR = os.path.join(DATA_DIR, "reports")
 IS_WINDOWS = platform.system() == "Windows"
 IS_MACOS = platform.system() == "Darwin"
 
@@ -79,18 +89,25 @@ def _child_env():
     return env
 
 
+def _engine_cmd(args):
+    """构造引擎子进程命令：打包版用自身 exe + --engine 分发，开发版直接跑脚本。"""
+    if IS_FROZEN:
+        return [sys.executable, "--engine"] + args
+    return [_python_exe(), ENGINE_PATH] + args
+
+
 def _run_engine(args, timeout=600):
     """调引擎 CLI，返回 (成功, 输出末尾)。"""
     creationflags = 0x08000000 if IS_WINDOWS else 0  # CREATE_NO_WINDOW
     env = _child_env()
     try:
         result = subprocess.run(
-            [_python_exe(), ENGINE_PATH] + args,
+            _engine_cmd(args),
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
-            cwd=SCRIPT_DIR,
+            cwd=DATA_DIR,
             timeout=timeout,
             creationflags=creationflags,
             stdin=subprocess.DEVNULL,
@@ -211,11 +228,10 @@ class Api:
         creationflags = 0x08000008 if IS_WINDOWS else 0  # CREATE_NO_WINDOW | DETACHED_PROCESS
         kwargs = {"creationflags": creationflags} if IS_WINDOWS else {"start_new_session": True}
         try:
-            # --collect 为采集进程标记：引擎按无参路径处理，但 stop-and-report.ps1
-            # 等脚本靠命令行中的该标记识别/停止采集进程，需保持一致
+            # --collect 为采集进程标记：引擎按无参路径处理，便于按命令行识别采集进程
             subprocess.Popen(
-                [_python_exe(), ENGINE_PATH, "--collect"],
-                cwd=SCRIPT_DIR,
+                _engine_cmd(["--collect"]),
+                cwd=DATA_DIR,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 env=_child_env(),
@@ -677,6 +693,11 @@ def main():
 
 
 if __name__ == "__main__":
+    # 打包版引擎分发：WorkLog.exe --engine <引擎参数...>（采集/截图/分析/出报子进程都走这里）
+    if len(sys.argv) > 1 and sys.argv[1] == "--engine":
+        sys.argv = [sys.argv[0]] + sys.argv[2:]
+        engine.main()
+        sys.exit(0)
     try:
         main()
     except Exception:

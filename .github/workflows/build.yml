@@ -1,0 +1,103 @@
+name: Build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: WorkLog-windows
+          - os: macos-latest
+            artifact: WorkLog-macos
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Generate icons
+        shell: python
+        run: |
+          from worklog_gui import _build_icon_image
+          img = _build_icon_image()
+          img.save("icon.png")
+          img.save("icon.ico", sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(256,256)])
+          try:
+              img.save("icon.icns")
+          except Exception as e:
+              print("icns skip:", e)
+
+      # 排除 Qt/numpy：pywebview 的 Qt 后备后端会把环境里碰巧存在的 PySide 整包拖入（500MB+）
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          pyinstaller --noconfirm --clean --windowed --name WorkLog
+          --icon icon.ico
+          --add-data "ui;ui"
+          --hidden-import pystray._win32
+          --collect-all webview
+          --exclude-module PySide6 --exclude-module PySide2
+          --exclude-module PyQt5 --exclude-module PyQt6
+          --exclude-module qtpy --exclude-module numpy
+          worklog_gui.py
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: >
+          pyinstaller --noconfirm --clean --windowed --name WorkLog
+          --icon icon.icns
+          --add-data "ui:ui"
+          --hidden-import pystray._darwin
+          --collect-all webview
+          --exclude-module PySide6 --exclude-module PySide2
+          --exclude-module PyQt5 --exclude-module PyQt6
+          --exclude-module qtpy --exclude-module numpy
+          worklog_gui.py
+
+      - name: Smoke test (engine dispatch)
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            BIN="dist/WorkLog/WorkLog.exe"
+          else
+            BIN="dist/WorkLog.app/Contents/MacOS/WorkLog"
+          fi
+          # 打包产物必须能以 --engine 模式运行引擎 CLI（--help 快速返回）
+          "$BIN" --engine --help
+          echo "engine dispatch OK"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: Compress-Archive -Path dist/WorkLog -DestinationPath WorkLog-windows.zip
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: ditto -c -k --keepParent dist/WorkLog.app WorkLog-macos.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.zip
+
+      - name: Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact }}.zip

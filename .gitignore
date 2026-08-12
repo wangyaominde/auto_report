@@ -15,6 +15,14 @@ assets/
 # 个人运维笔记（含本机细节）
 README-自动日报.md
 
+# ===== 构建产物 =====
+build/
+dist/
+*.spec
+icon.png
+icon.ico
+icon.icns
+
 # ===== Python =====
 __pycache__/
 *.py[cod]

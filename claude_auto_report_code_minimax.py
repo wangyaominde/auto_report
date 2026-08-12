@@ -38,24 +38,33 @@ import urllib.request
 
 
 def _load_dotenv() -> None:
-    """从脚本同目录的 .env 读取配置写入环境变量（不覆盖已存在的变量）。"""
+    """读取 .env 写入环境变量（不覆盖已存在的变量）。
+
+    查找顺序：WORKLOG_DATA_DIR/.env（打包版数据目录）→ 脚本同目录 .env。
+    """
+    candidates = []
+    data_root = os.getenv("WORKLOG_DATA_DIR", "").strip()
+    if data_root:
+        candidates.append(os.path.join(data_root, ".env"))
     try:
-        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        candidates.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
     except NameError:
-        return
-    try:
-        with open(env_path, "r", encoding="utf-8-sig") as fp:
-            for raw_line in fp:
-                line = raw_line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, _, value = line.partition("=")
-                key = key.strip()
-                value = value.strip().strip('"').strip("'")
-                if key and key not in os.environ:
-                    os.environ[key] = value
-    except OSError:
         pass
+    for env_path in candidates:
+        try:
+            with open(env_path, "r", encoding="utf-8-sig") as fp:
+                for raw_line in fp:
+                    line = raw_line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, _, value = line.partition("=")
+                    key = key.strip()
+                    value = value.strip().strip('"').strip("'")
+                    if key and key not in os.environ:
+                        os.environ[key] = value
+            return
+        except OSError:
+            continue
 
 
 _load_dotenv()
@@ -103,10 +112,12 @@ except ValueError:
     LLM_TEMPERATURE = 0.2
 
 DB_PATH = os.path.expanduser("~/.worklog/activity.db")
-REPORT_DIR = os.path.join(os.getcwd(), "reports")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else os.getcwd()
-SCREENSHOTS_DIR = os.path.join(SCRIPT_DIR, "screenshots")
-ANALYSIS_DIR = os.path.join(SCRIPT_DIR, "analysis")
+# WORKLOG_DATA_DIR：打包版（PyInstaller）的可写数据目录，由 GUI 设置；未设置时保持原行为
+_DATA_ROOT = os.getenv("WORKLOG_DATA_DIR", "").strip()
+REPORT_DIR = os.path.join(_DATA_ROOT or os.getcwd(), "reports")
+SCREENSHOTS_DIR = os.path.join(_DATA_ROOT or SCRIPT_DIR, "screenshots")
+ANALYSIS_DIR = os.path.join(_DATA_ROOT or SCRIPT_DIR, "analysis")
 try:
     LLM_MAX_IMAGES = int(os.getenv("LLM_MAX_IMAGES", "").strip() or "8")
 except ValueError:
