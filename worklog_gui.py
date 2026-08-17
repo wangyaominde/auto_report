@@ -292,6 +292,7 @@ class Api:
     LLM_ENV_KEYS = (
         "LLM_API_URL", "LLM_API_KEY", "LLM_MODEL", "LLM_API_FORMAT",
         "LLM_MAX_TOKENS", "LLM_TEMPERATURE", "LLM_MAX_IMAGES",
+        "SCREENSHOT_RETENTION_DAYS", "SCREENSHOT_DELETE_AFTER_ANALYSIS",
     )
 
     def settings_get(self):
@@ -304,6 +305,12 @@ class Api:
             "maxTokens": values.get("LLM_MAX_TOKENS", str(engine.LLM_MAX_TOKENS)),
             "temperature": values.get("LLM_TEMPERATURE", str(engine.LLM_TEMPERATURE)),
             "maxImages": values.get("LLM_MAX_IMAGES", str(engine.LLM_MAX_IMAGES)),
+            "shotRetentionDays": values.get(
+                "SCREENSHOT_RETENTION_DAYS", str(engine.SCREENSHOT_RETENTION_DAYS)
+            ),
+            "shotDeleteAfterAnalysis": values.get(
+                "SCREENSHOT_DELETE_AFTER_ANALYSIS", ""
+            ).strip().lower() in {"1", "true", "yes", "on"},
         }
 
     def settings_save(self, cfg):
@@ -317,6 +324,10 @@ class Api:
             "LLM_MAX_TOKENS": str(cfg.get("maxTokens", "")).strip(),
             "LLM_TEMPERATURE": str(cfg.get("temperature", "")).strip(),
             "LLM_MAX_IMAGES": str(cfg.get("maxImages", "")).strip(),
+            "SCREENSHOT_RETENTION_DAYS": str(cfg.get("shotRetentionDays", "")).strip(),
+            "SCREENSHOT_DELETE_AFTER_ANALYSIS": (
+                "1" if cfg.get("shotDeleteAfterAnalysis") else "0"
+            ),
         }
         if not mapping["LLM_API_URL"] or not mapping["LLM_API_KEY"]:
             return {"ok": False, "output": "API 地址与 Key 不能为空"}

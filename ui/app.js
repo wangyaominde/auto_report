@@ -373,6 +373,8 @@ async function loadSettings() {
   $("#setFormat").value = s.format === "openai" ? "openai" : "anthropic";
   $("#setMaxTokens").value = s.maxTokens || "8000";
   $("#setTemp").value = s.temperature || "0.2";
+  $("#setShotDays").value = s.shotRetentionDays || "7";
+  $("#setShotDelete").checked = !!s.shotDeleteAfterAnalysis;
   const active = detectPreset(s.url || "");
   renderPresetChips(active);
   if (active) $("#presetHint").textContent = PRESETS[active].hint;
@@ -386,6 +388,8 @@ async function saveSettings() {
     format: $("#setFormat").value,
     maxTokens: $("#setMaxTokens").value.trim(),
     temperature: $("#setTemp").value.trim(),
+    shotRetentionDays: $("#setShotDays").value.trim(),
+    shotDeleteAfterAnalysis: $("#setShotDelete").checked,
   };
   if (!cfg.url || !cfg.key || !cfg.model) { toast("API 地址、Key、模型均不能为空"); return null; }
   const r = await api.settings_save(cfg);

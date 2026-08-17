@@ -133,6 +133,10 @@ try:
     SCREENSHOT_RETENTION_DAYS = int(os.getenv("SCREENSHOT_RETENTION_DAYS", "").strip() or "7")
 except ValueError:
     SCREENSHOT_RETENTION_DAYS = 7
+# 分析完成后立即删除截图（不保留原图，仅留文字小结）；默认关闭走保留天数策略
+SCREENSHOT_DELETE_AFTER_ANALYSIS = (
+    os.getenv("SCREENSHOT_DELETE_AFTER_ANALYSIS", "").strip().lower() in {"1", "true", "yes", "on"}
+)
 COLLECT_INTERVAL = 5  # 采集间隔（秒）
 MIN_DURATION = 5  # 最短记录时长（秒）
 WINDOW_STABLE_COUNT = 1  # 窗口稳定次数（默认 1：首次变更即确认）
@@ -1754,18 +1758,28 @@ def analyze_phase(conn: sqlite3.Connection, target_date: Optional[str] = None) -
     with open(apath, "a", encoding="utf-8") as fp:
         fp.write(f"\n{header}\n\n{summary.strip()}\n")
 
-    # 归档已分析截图，避免重复分析（仍留在磁盘，由保留策略统一清理）
-    done_dir = os.path.join(shot_dir, "_analyzed")
-    os.makedirs(done_dir, exist_ok=True)
-    for shot in shots:
-        try:
-            shutil.move(shot, os.path.join(done_dir, os.path.basename(shot)))
-        except OSError:
-            pass
+    if SCREENSHOT_DELETE_AFTER_ANALYSIS:
+        # 用户选择分析后即删：原图不落长期存储，只保留文字小结
+        for shot in shots:
+            try:
+                os.remove(shot)
+            except OSError:
+                pass
+        archive_note = "已删除原图"
+    else:
+        # 归档已分析截图，避免重复分析（仍留在磁盘，由保留策略统一清理）
+        done_dir = os.path.join(shot_dir, "_analyzed")
+        os.makedirs(done_dir, exist_ok=True)
+        for shot in shots:
+            try:
+                shutil.move(shot, os.path.join(done_dir, os.path.basename(shot)))
+            except OSError:
+                pass
+        archive_note = "已归档"
 
     print(
         f"[阶段分析] 已完成 {start_label}–{end_label}：分析 {len(shots)} 张"
-        f"（发送 {len(sampled)} 张），写入 {apath}"
+        f"（发送 {len(sampled)} 张，{archive_note}），写入 {apath}"
     )
 
 
